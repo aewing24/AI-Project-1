@@ -13,6 +13,9 @@ class DQNAgent():
     network_sync_rate = 10  # number of steps the agent takes before syncing the policy and target network
     mini_batch_size = 32  # size of the training data set sampled from the replay memory
 
+    loss_fn = torch.MSELoss()  # NN loss function for MSE
+    optimizer = None  # optimizer
+
     def train(self, episodes):
         # Create Lunar Lander instance
         env = gym.make('LunarLander-v3')
@@ -30,6 +33,10 @@ class DQNAgent():
         # Make the target and policy networks the same (copy weights/biases from one network to the other)
         target_dqn.load_state_dict(policy_dqn.state_dict())
 
+        # Network optimizer, Adam
+        # just to start with, may have to change
+        self.optimizer = torch.optim.Adam(policy_dqn.parameters(), lr=self.learning_rate_a)
+
         # Track number of steps taken. Used for syncing policy => target network.
         step_count = 0
 
@@ -44,6 +51,7 @@ class DQNAgent():
 
             # Agent navigates map until it falls into hole/reaches goal (terminated), or has taken 200 actions (truncated).
             while (not terminated and not truncated):
+                cuml_reward = 0
 
                 # Select action based on epsilon-greedy
                 if random.random() < epsilon:
@@ -63,6 +71,9 @@ class DQNAgent():
                 # Save experience into memory
                 memory.append((state, action, new_state, reward, terminated))
 
+                # cumulate reward
+                cuml_reward += reward
+
                 # Move to the next state
                 state = new_state
 
@@ -70,10 +81,11 @@ class DQNAgent():
                 step_count += 1
 
             # Keep track of the rewards collected per episode.
-            if reward == 1:
-                rewards_per_episode[i] = 1
+            # An episode is considered a solution if it scores at least 200 points.
+            if cuml_reward >= 200:
+                rewards_per_episode[i] = cuml_reward
 
-            # Check if enough experience has been collected and if at least 1 reward has been collected
+            # Check if enough experience has been collected and if at least 1 success has trained
             if len(memory) > self.mini_batch_size and np.sum(rewards_per_episode) > 0:
                 mini_batch = memory.sample(self.mini_batch_size)
                 self.optimize(mini_batch, policy_dqn, target_dqn)
@@ -106,10 +118,60 @@ class DQNAgent():
 
         for i in range(episodes):
             # use the policy to navigate the environment
+            state = env.reset()[0]  # Initialize to state 0
+            terminated = False  # True when agent crashes, moves out of viewport, or reached goal
+            truncated = False  # True when agent takes more than 200 actions
+
+            # Agent navigates map until it falls into a hole (terminated), reaches goal (terminated), or has taken 200 actions (truncated).
+            while (not terminated and not truncated):
+                # Select best action
+                with torch.no_grad():
+                    action = policy_dqn(self.state_to_dqn_input(state, num_states)).argmax().item()
+
+                # Execute action
+                state, reward, terminated, truncated, _ = env.step(action)
+
+        env.close()
 
     def optimize(self, mini_batch, policy_dqn, target_dqn):
         # update the policy network
+        # Get number of input nodes
+        num_states = policy_dqn.fc1.in_features
 
+        current_q_list = []
+        target_q_list = []
+
+        for state, action, new_state, reward, terminated in mini_batch:
+
+            if terminated:
+                # An episode is considered a solution if it scores at least 200 points.
+                # When in a terminated state, target q value should be set to the reward.
+                target = torch.FloatTensor([reward])
+            else:
+                # Calculate target q value
+                with torch.no_grad():
+                    target = torch.FloatTensor(
+                        reward + self.discount_factor_g * target_dqn(
+                            self.state_to_dqn_input(new_state, num_states)).max()
+                    )
+
+            # Get the current set of Q values
+            current_q = policy_dqn(self.state_to_dqn_input(state, num_states))
+            current_q_list.append(current_q)
+
+            # Get the target set of Q values
+            target_q = target_dqn(self.state_to_dqn_input(state, num_states))
+            # Adjust the specific action to the target that was just calculated
+            target_q[action] = target
+            target_q_list.append(target_q)
+
+        # Compute loss for the whole minibatch
+        loss = self.loss_fn(torch.stack(current_q_list), torch.stack(target_q_list))
+
+        # Optimize the model
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
     '''
     The state is an 8-dimensional vector: the coordinates of the lander in x & y,
     its linear velocities in x & y, its angle, its angular velocity,
