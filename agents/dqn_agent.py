@@ -2,6 +2,7 @@ import gymnasium as gym
 import torch
 import random
 import numpy as np
+import tensorflow as tf
 from ..networks import q_network as DQN
 from ..utils import replay_buffer as rb
 from ..utils import train_logger as tl
@@ -63,7 +64,7 @@ class DQNAgent():
                     # Do not call model.forward() directly!
                     # We must also convert the environment's state to a tensor representation for the nn to use
                     with torch.no_grad():
-                        action = policy_dqn(self.state_to_dqn_input(state, num_states)).argmax().item()
+                        action = policy_dqn(tf.convert_to_tensor(state, dtype=tf.float32)).argmax().item()
 
                 # Execute action
                 new_state, reward, terminated, truncated, _ = env.step(action)
@@ -126,7 +127,7 @@ class DQNAgent():
             while (not terminated and not truncated):
                 # Select best action
                 with torch.no_grad():
-                    action = policy_dqn(self.state_to_dqn_input(state, num_states)).argmax().item()
+                    action = policy_dqn(tf.convert_to_tensor(state, dtype=tf.float32)).argmax().item()
 
                 # Execute action
                 state, reward, terminated, truncated, _ = env.step(action)
@@ -135,8 +136,6 @@ class DQNAgent():
 
     def optimize(self, mini_batch, policy_dqn, target_dqn):
         # update the policy network
-        # Get number of input nodes
-        num_states = policy_dqn.fc1.in_features
 
         current_q_list = []
         target_q_list = []
@@ -152,15 +151,15 @@ class DQNAgent():
                 with torch.no_grad():
                     target = torch.FloatTensor(
                         reward + self.discount_factor_g * target_dqn(
-                            self.state_to_dqn_input(new_state, num_states)).max()
+                            tf.convert_to_tensor(state, dtype=tf.float32)).max()
                     )
 
             # Get the current set of Q values
-            current_q = policy_dqn(self.state_to_dqn_input(state, num_states))
+            current_q = policy_dqn(tf.convert_to_tensor(state, dtype=tf.float32))
             current_q_list.append(current_q)
 
             # Get the target set of Q values
-            target_q = target_dqn(self.state_to_dqn_input(state, num_states))
+            target_q = target_dqn(tf.convert_to_tensor(state, dtype=tf.float32))
             # Adjust the specific action to the target that was just calculated
             target_q[action] = target
             target_q_list.append(target_q)
@@ -172,12 +171,3 @@ class DQNAgent():
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
-    '''
-    The state is an 8-dimensional vector: the coordinates of the lander in x & y,
-    its linear velocities in x & y, its angle, its angular velocity,
-    and two booleans that represent whether each leg is in contact with the ground or not.
-    '''
-    def state_to_dqn_input(self, state: int, num_states: int) -> torch.Tensor:
-        input_tensor = torch.zeros(num_states)
-        # convert here
-        return input_tensor
