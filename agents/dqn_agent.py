@@ -2,7 +2,6 @@ import gymnasium as gym
 import torch
 import random
 import numpy as np
-import tensorflow as tf
 from ..networks import q_network as DQN
 from ..utils import replay_buffer as rb
 from ..utils import train_logger as tl
@@ -64,7 +63,7 @@ class DQNAgent():
                     # Do not call model.forward() directly!
                     # We must also convert the environment's state to a tensor representation for the nn to use
                     with torch.no_grad():
-                        action = policy_dqn(tf.convert_to_tensor(state, dtype=tf.float32)).argmax().item()
+                        action = policy_dqn(torch.tensor(state, dtype=torch.float32)).argmax().item()
 
                 # Execute action
                 new_state, reward, terminated, truncated, _ = env.step(action)
@@ -127,7 +126,7 @@ class DQNAgent():
             while (not terminated and not truncated):
                 # Select best action
                 with torch.no_grad():
-                    action = policy_dqn(tf.convert_to_tensor(state, dtype=tf.float32)).argmax().item()
+                    action = policy_dqn(torch.tensor(state, dtype=torch.float32)).argmax().item()
 
                 # Execute action
                 state, reward, terminated, truncated, _ = env.step(action)
@@ -151,15 +150,15 @@ class DQNAgent():
                 with torch.no_grad():
                     target = torch.FloatTensor(
                         reward + self.discount_factor_g * target_dqn(
-                            tf.convert_to_tensor(state, dtype=tf.float32)).max()
+                            torch.tensor(state, dtype=torch.float32)).max()
                     )
 
             # Get the current set of Q values
-            current_q = policy_dqn(tf.convert_to_tensor(state, dtype=tf.float32))
+            current_q = policy_dqn(torch.tensor(state, dtype=torch.float32))
             current_q_list.append(current_q)
 
             # Get the target set of Q values
-            target_q = target_dqn(tf.convert_to_tensor(state, dtype=tf.float32))
+            target_q = target_dqn(torch.tensor(state, dtype=torch.float32))
             # Adjust the specific action to the target that was just calculated
             target_q[action] = target
             target_q_list.append(target_q)
