@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import random
 import numpy as np
+import matplotlib.pyplot as plt
 
 from networks.q_network import Net
 from utils.replay_buffer import ReplayBuffer
@@ -10,7 +11,7 @@ from utils.train_logger import TrainingLogger
 
 class DQNAgent():
     # Hyperparameters (adjustable)
-    learning_rate_a = 0.001  # learning rate (alpha)
+    learning_rate_a = 0.005  # learning rate (alpha)
     discount_factor_g = 0.9  # discount rate (gamma)
     network_sync_rate = 10  # number of steps the agent takes before syncing the policy and target network
     mini_batch_size = 32  # size of the training data set sampled from the replay memory
@@ -29,8 +30,8 @@ class DQNAgent():
         logger = TrainingLogger()
 
         # Create policy and target network. Number of nodes in the hidden layer can be adjusted.
-        policy_dqn = Net(in_states=num_states, h1_nodes=num_states, out_actions=num_actions)
-        target_dqn = Net(in_states=num_states, h1_nodes=num_states, out_actions=num_actions)
+        policy_dqn = Net(in_states=num_states, out_actions=num_actions)
+        target_dqn = Net(in_states=num_states, out_actions=num_actions)
 
         # Make the target and policy networks the same (copy weights/biases from one network to the other)
         target_dqn.load_state_dict(policy_dqn.state_dict())
@@ -50,10 +51,10 @@ class DQNAgent():
             state = env.reset()[0]  # Initialize to state 0
             terminated = False  # True when agent crashes, leaves viewport, or reached goal
             truncated = False  # True when agent takes more than 200 actions
+            cuml_reward = 0
 
             # Agent navigates map until it falls into hole/reaches goal (terminated), or has taken 200 actions (truncated).
             while (not terminated and not truncated):
-                cuml_reward = 0
 
                 # Select action based on epsilon-greedy
                 if random.random() < epsilon:
@@ -84,8 +85,7 @@ class DQNAgent():
 
             # Keep track of the rewards collected per episode.
             # An episode is considered a solution if it scores at least 200 points.
-            if cuml_reward >= 200:
-                rewards_per_episode[i] = cuml_reward
+            rewards_per_episode[i] = cuml_reward
 
             # Check if enough experience has been collected and if at least 1 success has trained
             if len(memory) > self.mini_batch_size and np.sum(rewards_per_episode) > 0:
@@ -100,11 +100,13 @@ class DQNAgent():
                     target_dqn.load_state_dict(policy_dqn.state_dict())
                     step_count = 0
 
-            # Close environment
-            env.close()
+        # Close environment
+        env.close()
 
-            # Save policy
-            torch.save(policy_dqn.state_dict(), "lunar_lander_dql.pt")
+        # Save policy
+        torch.save(policy_dqn.state_dict(), "lunar_lander_dql.pt")
+
+        print(rewards_per_episode.max())
 
     # Run the Lunar Laner environment using an already learned policy
     def test(self, episodes):
@@ -114,7 +116,7 @@ class DQNAgent():
         num_actions = env.action_space.n
 
         # Load learned policy
-        policy_dqn = Net(in_states=num_states, h1_nodes=num_states, out_actions=num_actions)
+        policy_dqn = Net(in_states=num_states, out_actions=num_actions)
         policy_dqn.load_state_dict(torch.load("lunar_lander_dql.pt"))
         policy_dqn.eval()  # switch model to evaluation mode
 
