@@ -11,10 +11,11 @@ from utils.train_logger import TrainingLogger
 
 class DQNAgent():
     # Hyperparameters (adjustable)
-    learning_rate_a = 0.005  # learning rate (alpha)
-    discount_factor_g = 0.9  # discount rate (gamma)
-    network_sync_rate = 10  # number of steps the agent takes before syncing the policy and target network
-    mini_batch_size = 32  # size of the training data set sampled from the replay memory
+    learning_rate_a = 0.01  # learning rate (alpha)
+    discount_factor_g = 0.95  # discount rate (gamma)
+    network_sync_rate = 5  # number of steps the agent takes before soft updating the target network
+    mini_batch_size = 64  # size of the training data set sampled from the replay memory
+    tau = 0.001 # soft update amount
 
     loss_fn = nn.MSELoss()  # NN loss function for MSE
     optimizer = None  # optimizer
@@ -26,7 +27,7 @@ class DQNAgent():
         num_actions = env.action_space.n
 
         epsilon = 1  # 1 = 100% random actions
-        memory = ReplayBuffer(50000)
+        memory = ReplayBuffer(episodes * 350)
         logger = TrainingLogger()
 
         # Create policy and target network. Number of nodes in the hidden layer can be adjusted.
@@ -87,17 +88,18 @@ class DQNAgent():
             # An episode is considered a solution if it scores at least 200 points.
             rewards_per_episode[i] = cuml_reward
 
-            # Check if enough experience has been collected and if at least 1 success has trained
-            if len(memory) > self.mini_batch_size and np.sum(rewards_per_episode) > 0:
+            # Check if enough experience has been collected
+            if len(memory) > self.mini_batch_size:
                 mini_batch = memory.sample(self.mini_batch_size)
                 self.optimize(mini_batch, policy_dqn, target_dqn)
 
                 # Decay epsilon
-                epsilon = max(epsilon - 1 / episodes, 0)
+                epsilon = max(epsilon - 1 / episodes, 0.01)
 
-                # Copy policy network to target network after a certain number of steps
+                # soft update policy network to target network after a certain number of steps
                 if step_count > self.network_sync_rate:
-                    target_dqn.load_state_dict(policy_dqn.state_dict())
+                    for target_param, local_param in zip(target_dqn.parameters(), policy_dqn.parameters()):
+                        target_param.data.copy_(self.tau * local_param.data + (1.0 - self.tau) * target_param.data)
                     step_count = 0
 
         # Close environment
@@ -105,6 +107,11 @@ class DQNAgent():
 
         # Save policy
         torch.save(policy_dqn.state_dict(), "lunar_lander_dql.pt")
+
+        plt.plot(rewards_per_episode)
+
+        # Save plots
+        plt.savefig('frozen_lake_dql.png')
 
         print(rewards_per_episode.max())
 
@@ -126,7 +133,7 @@ class DQNAgent():
             terminated = False  # True when agent crashes, moves out of viewport, or reached goal
             truncated = False  # True when agent takes more than 200 actions
 
-            # Agent navigates map until it falls into a hole (terminated), reaches goal (terminated), or has taken 200 actions (truncated).
+            # Agent navigates map until it crashes (terminated), leaves viewport (terminated), reaches goal (terminated), or has taken 200 actions (truncated).
             while (not terminated and not truncated):
                 # Select best action
                 with torch.no_grad():
@@ -139,7 +146,6 @@ class DQNAgent():
 
     def optimize(self, mini_batch, policy_dqn, target_dqn):
         # update the policy network
-
         current_q_list = []
         target_q_list = []
 
@@ -154,7 +160,7 @@ class DQNAgent():
                 with torch.no_grad():
                     target = torch.FloatTensor(
                         reward + self.discount_factor_g * target_dqn(
-                            torch.tensor(state, dtype=torch.float32)).max()
+                            torch.tensor(new_state, dtype=torch.float32)).max()
                     )
 
             # Get the current set of Q values
