@@ -13,7 +13,7 @@ class DQNAgent():
     # Hyperparameters (adjustable)
     learning_rate_a = 0.01  # learning rate (alpha)
     discount_factor_g = 0.95  # discount rate (gamma)
-    network_sync_rate = 5  # number of steps the agent takes before soft updating the target network
+    network_sync_rate = 10  # number of steps the agent takes before soft updating the target network
     mini_batch_size = 64  # size of the training data set sampled from the replay memory
     tau = 0.001 # soft update amount
 
@@ -85,15 +85,15 @@ class DQNAgent():
                 step_count += 1
 
                 # Check if enough experience has been collected
-                if len(memory) > self.mini_batch_size:
+                if len(memory) > self.mini_batch_size and step_count > self.network_sync_rate:
                     mini_batch = memory.sample(self.mini_batch_size)
                     self.optimize(mini_batch, policy_dqn, target_dqn)
 
                     # soft update policy network to target network after a certain number of steps
-                    if step_count > self.network_sync_rate:
-                        for target_param, local_param in zip(target_dqn.parameters(), policy_dqn.parameters()):
-                            target_param.data.copy_(self.tau * local_param.data + (1.0 - self.tau) * target_param.data)
-                        step_count = 0
+                    for target_param, local_param in zip(target_dqn.parameters(), policy_dqn.parameters()):
+                        target_param.data.copy_(self.tau * local_param.data + (1.0 - self.tau) * target_param.data)
+
+                    step_count = 0
 
             # Keep track of the rewards collected per episode.
             # An episode is considered a solution if it scores at least 200 points.
@@ -146,35 +146,24 @@ class DQNAgent():
 
     def optimize(self, mini_batch, policy_dqn, target_dqn):
         # update the policy network
-        current_q_list = []
-        target_q_list = []
+        states = torch.tensor(np.array([s for s, _, _, _, _ in mini_batch]), dtype=torch.float32)
+        actions = torch.tensor(np.array([a for _, a, _, _, _ in mini_batch]), dtype=torch.int64)
+        rewards = torch.tensor(np.array([r for _, _, _, r, _ in mini_batch]), dtype=torch.float32)
+        next_states = torch.tensor(np.array([ns for _, _, ns, _, _ in mini_batch]), dtype=torch.float32)
+        dones = torch.tensor(np.array([done for _, _, _, _, done in mini_batch]), dtype=torch.float32)
 
-        for state, action, new_state, reward, terminated in mini_batch:
+        # Get current Q values for taken actions
+        q_values = policy_dqn(states)
+        current_q = q_values.gather(1, actions.unsqueeze(1)).squeeze()
 
-            if terminated:
-                # An episode is considered a solution if it scores at least 200 points.
-                # When in a terminated state, target q value should be set to the reward.
-                target = torch.FloatTensor([reward])
-            else:
-                # Calculate target q value
-                with torch.no_grad():
-                    target = torch.FloatTensor(
-                        reward + self.discount_factor_g * target_dqn(
-                            torch.tensor(new_state, dtype=torch.float32)).max()
-                    )
+        # Compute target Q values
+        with torch.no_grad():
+            max_next_q = target_dqn(next_states).max(1)[0]
+            # (1-dones) handles the terminal cases
+            target_q = rewards + (1 - dones) * self.discount_factor_g * max_next_q
 
-            # Get the current set of Q values
-            current_q = policy_dqn(torch.tensor(state, dtype=torch.float32))
-            current_q_list.append(current_q)
-
-            # Get the target set of Q values
-            target_q = target_dqn(torch.tensor(state, dtype=torch.float32))
-            # Adjust the specific action to the target that was just calculated
-            target_q[action] = target
-            target_q_list.append(target_q)
-
-        # Compute loss for the whole minibatch
-        loss = self.loss_fn(torch.stack(current_q_list), torch.stack(target_q_list))
+        # Loss
+        loss = self.loss_fn(current_q, target_q)
 
         # Optimize the model
         self.optimizer.zero_grad()
