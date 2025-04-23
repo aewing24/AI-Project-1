@@ -26,7 +26,7 @@ class DQNAgent():
         num_actions = env.action_space.n
 
         epsilon = 1  # 1 = 100% random actions
-        memory = ReplayBuffer()
+        memory = ReplayBuffer(50000)
         logger = TrainingLogger()
 
         # Create policy and target network. Number of nodes in the hidden layer can be adjusted.
@@ -72,7 +72,7 @@ class DQNAgent():
                 new_state, reward, terminated, truncated, _ = env.step(action)
 
                 # Save experience into memory
-                memory.append((state, action, new_state, reward, terminated))
+                memory.push(state, action, new_state, reward, terminated)
 
                 # cumulate reward
                 cuml_reward += reward
