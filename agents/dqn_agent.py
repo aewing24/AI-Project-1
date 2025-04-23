@@ -84,23 +84,23 @@ class DQNAgent():
                 # Increment step counter
                 step_count += 1
 
+                # Check if enough experience has been collected
+                if len(memory) > self.mini_batch_size:
+                    mini_batch = memory.sample(self.mini_batch_size)
+                    self.optimize(mini_batch, policy_dqn, target_dqn)
+
+                    # soft update policy network to target network after a certain number of steps
+                    if step_count > self.network_sync_rate:
+                        for target_param, local_param in zip(target_dqn.parameters(), policy_dqn.parameters()):
+                            target_param.data.copy_(self.tau * local_param.data + (1.0 - self.tau) * target_param.data)
+                        step_count = 0
+
             # Keep track of the rewards collected per episode.
             # An episode is considered a solution if it scores at least 200 points.
             rewards_per_episode[i] = cuml_reward
 
-            # Check if enough experience has been collected
-            if len(memory) > self.mini_batch_size:
-                mini_batch = memory.sample(self.mini_batch_size)
-                self.optimize(mini_batch, policy_dqn, target_dqn)
-
-                # Decay epsilon
-                epsilon = max(epsilon - 1 / episodes, 0.01)
-
-                # soft update policy network to target network after a certain number of steps
-                if step_count > self.network_sync_rate:
-                    for target_param, local_param in zip(target_dqn.parameters(), policy_dqn.parameters()):
-                        target_param.data.copy_(self.tau * local_param.data + (1.0 - self.tau) * target_param.data)
-                    step_count = 0
+            # Decay epsilon
+            epsilon = max(epsilon - 1 / episodes, 0.01)
 
         # Close environment
         env.close()
