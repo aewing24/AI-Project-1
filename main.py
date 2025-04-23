@@ -14,4 +14,4 @@ from agents.dqn_agent import DQNAgent
 if __name__ == '__main__':
     lunar_lander = DQNAgent()
     lunar_lander.train(1000)
-    lunar_lander.test(10)
+    #lunar_lander.test(10)
