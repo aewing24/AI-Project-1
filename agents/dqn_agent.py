@@ -42,7 +42,7 @@ class DQNAgent:
         self.batch_size = batch_size
         self.gamma = gamma
         self.eps = 1.0
-        self.eps_decay = 0.0005
+        self.eps_decay = 0.001
         self.eps_end = 0.01
         self.tau = 0.001 #soft update constant
         self.sync_steps = sync_steps
