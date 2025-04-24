@@ -1,171 +1,233 @@
-import gymnasium as gym
+from collections import deque
+
 import torch
-import torch.nn as nn
 import random
 import numpy as np
-import matplotlib.pyplot as plt
+import torch.optim as optim
+from matplotlib import pyplot as plt
+from torch import nn
 
-from networks.q_network import Net
+from networks.q_network import DQN
+from networks.q_network import F
 from utils.replay_buffer import ReplayBuffer
-from utils.train_logger import TrainingLogger
+class DQNAgent:
+    """
+    This is the DQN type agent that interacts with custom environment
+    and utilizes target policy eps-greedy networks that operate using
+    DQN algorithm.\n
+    Authors:
+        name, name, name, name, Nazarii Revitskyi
+    Date: Apr 23, 2025
+    """
+    # if gpu
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print("Current device: ",device)
 
-class DQNAgent():
-    # Hyperparameters (adjustable)
-    learning_rate_a = 0.01  # learning rate (alpha)
-    discount_factor_g = 0.95  # discount rate (gamma)
-    network_sync_rate = 10  # number of steps the agent takes before soft updating the target network
-    mini_batch_size = 64  # size of the training data set sampled from the replay memory
-    tau = 0.001 # soft update amount
+    def __init__(self, state_size, action_size, batch_size, gamma, sync_steps, capacity, alpha, seed)->None:
+        """
+        Initialize DQN Agent with replay buffer and adam optimizer.
+        :param state_size: size of env state to consider in computation
+        :param action_size: size of env actions available in computation
+        :param batch_size: size of replay buffer to feed into network
+        :param gamma: constant discount factor to optimize behavior and converge rewards
+        :param capacity: how large of a replay buffer we want
+        :param alpha: learning rate constant, determines to what extent new info overrides old.
+        :param seed: seed to use for random
+        """
+        #net param
+        self.state_size = state_size
+        self.action_size = action_size
+        self.seed = random.seed(seed)
+        #hyper
+        self.batch_size = batch_size
+        self.gamma = gamma
+        self.eps = 1.0
+        self.eps_decay = 0.0005
+        self.eps_end = 0.01
+        self.tau = 0.001 #soft update constant
+        self.sync_steps = sync_steps
+        #replay
+        self.buffer_replay = ReplayBuffer(self.device, capacity, seed)
 
-    loss_fn = nn.MSELoss()  # NN loss function for MSE
-    optimizer = None  # optimizer
-
-    def train(self, episodes):
-        # Create Lunar Lander instance
-        env = gym.make('LunarLander-v3')
-        num_states = env.observation_space.shape[0]
-        num_actions = env.action_space.n
-
-        epsilon = 1  # 1 = 100% random actions
-        memory = ReplayBuffer(episodes * 350)
-        logger = TrainingLogger()
-
-        # Create policy and target network. Number of nodes in the hidden layer can be adjusted.
-        policy_dqn = Net(in_states=num_states, out_actions=num_actions)
-        target_dqn = Net(in_states=num_states, out_actions=num_actions)
-
-        # Make the target and policy networks the same (copy weights/biases from one network to the other)
-        target_dqn.load_state_dict(policy_dqn.state_dict())
-
-        # Network optimizer, Adam
-        # just to start with, may have to change
-        self.optimizer = torch.optim.Adam(policy_dqn.parameters(), lr=self.learning_rate_a)
-
-        # Track number of steps taken. Used for syncing policy => target network.
-        step_count = 0
-
-        # List to keep track of rewards collected per episode. Initialize list to 0's.
-        rewards_per_episode = np.zeros(episodes)
-
-        for i in range(episodes):
-            #implement training algorithm
-            state = env.reset()[0]  # Initialize to state 0
-            terminated = False  # True when agent crashes, leaves viewport, or reached goal
-            truncated = False  # True when agent takes more than 200 actions
-            cuml_reward = 0
-
-            # Agent navigates map until it falls into hole/reaches goal (terminated), or has taken 200 actions (truncated).
-            while (not terminated and not truncated):
-
-                # Select action based on epsilon-greedy
-                if random.random() < epsilon:
-                    # select random action
-                    action = env.action_space.sample()  # actions: 0=nothing,1=left engine,2=main engine,3=right engine
-                else:
-                    # select best action, we use no_grad because we are just evaluating
-                    # To use the model, we pass it the input data. This executes the model’s forward, along with some background operations.
-                    # Do not call model.forward() directly!
-                    # We must also convert the environment's state to a tensor representation for the nn to use
-                    with torch.no_grad():
-                        action = policy_dqn(torch.tensor(state, dtype=torch.float32)).argmax().item()
-
-                # Execute action
-                new_state, reward, terminated, truncated, _ = env.step(action)
-
-                # Save experience into memory
-                memory.push(state, action, new_state, reward, terminated)
-
-                # cumulate reward
-                cuml_reward += reward
-
-                # Move to the next state
-                state = new_state
-
-                # Increment step counter
-                step_count += 1
-
-                # Check if enough experience has been collected
-                if len(memory) > self.mini_batch_size and step_count > self.network_sync_rate:
-                    mini_batch = memory.sample(self.mini_batch_size)
-                    self.optimize(mini_batch, policy_dqn, target_dqn)
-
-                    # soft update policy network to target network after a certain number of steps
-                    for target_param, local_param in zip(target_dqn.parameters(), policy_dqn.parameters()):
-                        target_param.data.copy_(self.tau * local_param.data + (1.0 - self.tau) * target_param.data)
-
-                    step_count = 0
-
-            # Keep track of the rewards collected per episode.
-            # An episode is considered a solution if it scores at least 200 points.
-            rewards_per_episode[i] = cuml_reward
-
-            # Decay epsilon
-            epsilon = max(epsilon - 1 / episodes, 0.01)
-
-        # Close environment
-        env.close()
-
-        # Save policy
-        torch.save(policy_dqn.state_dict(), "lunar_lander_dql.pt")
-
-        plt.plot(rewards_per_episode)
-
-        # Save plots
-        plt.savefig('frozen_lake_dql.png')
-
-        print(rewards_per_episode.max())
-
-    # Run the Lunar Laner environment using an already learned policy
-    def test(self, episodes):
-        # Create Lunar Lander instance
-        env = gym.make('LunarLander-v3')
-        num_states = env.observation_space.shape[0]
-        num_actions = env.action_space.n
-
-        # Load learned policy
-        policy_dqn = Net(in_states=num_states, out_actions=num_actions)
-        policy_dqn.load_state_dict(torch.load("lunar_lander_dql.pt"))
-        policy_dqn.eval()  # switch model to evaluation mode
-
-        for i in range(episodes):
-            # use the policy to navigate the environment
-            state = env.reset()[0]  # Initialize to state 0
-            terminated = False  # True when agent crashes, moves out of viewport, or reached goal
-            truncated = False  # True when agent takes more than 200 actions
-
-            # Agent navigates map until it crashes (terminated), leaves viewport (terminated), reaches goal (terminated), or has taken 200 actions (truncated).
-            while (not terminated and not truncated):
-                # Select best action
-                with torch.no_grad():
-                    action = policy_dqn(torch.tensor(state, dtype=torch.float32)).argmax().item()
-
-                # Execute action
-                state, reward, terminated, truncated, _ = env.step(action)
-
-        env.close()
-
-    def optimize(self, mini_batch, policy_dqn, target_dqn):
-        # update the policy network
-        states = torch.tensor(np.array([s for s, _, _, _, _ in mini_batch]), dtype=torch.float32)
-        actions = torch.tensor(np.array([a for _, a, _, _, _ in mini_batch]), dtype=torch.int64)
-        rewards = torch.tensor(np.array([r for _, _, _, r, _ in mini_batch]), dtype=torch.float32)
-        next_states = torch.tensor(np.array([ns for _, _, ns, _, _ in mini_batch]), dtype=torch.float32)
-        dones = torch.tensor(np.array([done for _, _, _, _, done in mini_batch]), dtype=torch.float32)
-
-        # Get current Q values for taken actions
-        q_values = policy_dqn(states)
-        current_q = q_values.gather(1, actions.unsqueeze(1)).squeeze()
-
-        # Compute target Q values
+        #net
+        self.net_eval = DQN(state_size, action_size, seed).to(self.device)
+        self.net_target = DQN(state_size, action_size, seed).to(self.device)
+        self.optimizer = optim.Adam(self.net_eval.parameters(),lr=alpha)
+        self.loss = nn.MSELoss()
+        #update counter
+        self.steps = 0
+    def take_action(self, state, eps=0.0)->int:
+        """
+        Converts numpy array to tensor and moves to specified device
+        then gets the action values from network and based on epsilon chooses
+        either optimized action or random direction.
+        :param state: state to decide action for
+        :param eps: epsilon value to introduce exploration vs exploitation
+        :return: action to take.
+        """
+        state = torch.from_numpy(state).float().unsqueeze(0).to(self.device)
+        self.net_eval.eval()
         with torch.no_grad():
-            max_next_q = target_dqn(next_states).max(1)[0]
-            # (1-dones) handles the terminal cases
-            target_q = rewards + (1 - dones) * self.discount_factor_g * max_next_q
+            action_values = self.net_eval(state)
+        self.net_eval.train()
+        #select action by epsilon
+        if random.random() > eps:
+            return np.argmax(action_values.cpu().data.numpy())
+        else:
+            return random.choice(np.arange(self.action_size))
+    def prepare_batch(self, state, action, next_state, reward, done)->None:
+        """
+        Adds transition to replay buffer and checks if enough steps were taken
+        before syncing policy and target networks
+        :param state: state from environment
+        :param action: action from environment
+        :param next_state: next state from environment
+        :param reward:  reward from environment
+        :param done: current step performance from environment
+        :return: none
+        """
+        self.buffer_replay.push(state, action, next_state, reward, done)
 
-        # Loss
-        loss = self.loss_fn(current_q, target_q)
-
-        # Optimize the model
+        self.steps +=1
+        if self.steps % self.sync_steps == 0:
+            if len(self.buffer_replay) >= self.batch_size:
+                transitions = self.buffer_replay.sample(self.batch_size)
+                self.update_params(transitions)
+    def update_params(self, transitions)->None:
+        """
+        If buffer size is sufficient we take the named tuple and convert it to
+        tensors to calculate the q values in value network then compute error
+        and backpropagate calculating gradients
+        :return: none
+        """
+        if len(self.buffer_replay)<self.batch_size:
+            return
+        #get batch
+        states, actions, next_states, rewards, dones = transitions
+        #compute V(s_{t+1})
+        next_state_values = self.net_target(next_states).detach().max(axis=1)[0].unsqueeze(1)
+        #compute expected Q
+        expected_state_action_values = rewards + self.gamma * next_state_values * (1 - dones)
+        #compute Q(s_t, a)
+        state_action_values = self.net_eval(states).gather(1, actions)
+        #loss
+        loss = self.loss(state_action_values, expected_state_action_values)
+        #optimize
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
+        #soft update
+        self.soft_update()
+
+    def soft_update(self)->None:
+        """
+        updates target network by copying over the data from policy network
+        :return: none
+        """
+        for eval_param, target_param in zip(self.net_eval.parameters(),
+                                            self.net_target.parameters()):
+            target_param.data.copy_(self.tau*eval_param.data +
+                                    (1.0 - self.tau) * target_param.data)
+
+    def save(self, fname)->None:
+        """
+        save network state named as fname
+        :param fname: file name to save the state of network.
+        :return: none
+        """
+        torch.save(self.net_eval.state_dict(), fname)
+
+    def load(self, fname)->None:
+        """
+        Load saved state of network in fname file and map tensors from gpu to cpu
+        :param fname:
+        :return:none
+        """
+        self.net_eval.load_state_dict(torch.load(fname))
+
+    def train(self, env, episodes, max_steps=1000, target=200, terminate_on_target=False)->None:
+        """
+        This method is used to train DQN agent using gym LLv3 env over
+        policy and target Deep Q Network.
+        :param env: environment to train in
+        :param episodes: number of episodes to train over
+        :param max_steps: max env steps per episode if exceeded will go to next episode
+        :param target: target average reward to reach
+        :param terminate_on_target: whether to terminate training on reaching target
+        :return: none
+        """
+        reward_list = []
+        reward_avg = 0
+        reward_avg_list = []
+
+        fails = 0
+
+        #train loop
+        for i_ep in range(1,episodes+1):
+            state = env.reset()[0]
+            cumulative_reward = 0
+            for i_step in range(1, max_steps+1):
+                action = self.take_action(state, self.eps)
+                next_state, reward, done, truncated, _ = env.step(action)
+                self.prepare_batch(state, action, next_state, reward, done)
+                state = next_state
+                cumulative_reward += reward
+                if done:
+                    fails+=1
+                    break
+
+            #after each episode
+            reward_list.append(cumulative_reward)        #save new score
+            reward_avg = np.mean(reward_list[-100:]) #recent 100
+            reward_avg_list.append(reward_avg)
+            self.eps = max(self.eps*(1-self.eps_decay),self.eps_end) #decrease eps
+
+            print(
+                '\rEpisode {}\tAverage Reward: {:.2f}\tTotal Episodic Reward: {:.2f}\tEpsilon: {:.2f}\tSuccesses: {}/{}'
+                .format(i_ep, reward_avg, sum(reward_list), self.eps, i_ep-fails, i_ep),end="")
+            if i_ep == 50:
+                self.save('checkpoint_mid_train1.pt')
+            if i_ep == 100:
+                self.save('checkpoint_mid_train2.pt')
+            if i_ep == 200:
+                self.save('checkpoint_mid_train3.pt')
+            if i_ep == 500:
+                self.save('checkpoint_mid_train4.pt')
+            if i_ep == 1000:
+                self.save('checkpoint_mid_train5.pt')
+
+            if i_ep % 25 == 0:
+                print('\rEpisode {}\tAverage Reward: {:.2f}\tTotal Episodic Reward: {:.2f}\tEpsilon: {:.2f}\tSuccesses: {}/{}'
+                      .format(i_ep, reward_avg, sum(reward_list), self.eps, i_ep-fails, i_ep))
+            if np.mean(reward_avg) >= target and terminate_on_target:
+                print('\nEnvironment solved in {:d} episodes!\tAverage Score: {:.2f}'.format(i_ep, reward_avg))
+                self.save('final_checkpoint.pt')
+                break
+        # plots
+        fig = plt.figure()
+        fig.add_subplot(111)
+        plt.axhline(y=target, xmin=0, xmax=episodes + 100, color='g', label="Final Reward")
+        plt.plot(np.arange(len(reward_list)), reward_list, color='b', label="Cumulative Rewards")
+        plt.plot(np.arange(len(reward_avg_list)), reward_avg_list, 'r', label='Average-Reward')
+        plt.title('Episodic Reward LLv3')
+        plt.ylabel('Rewards')
+        plt.xlabel('Episode')
+        plt.legend(loc='lower right')
+        plt.savefig("DQN_Reward_vs_Ep.png")
+
+    def test(self, env, episodes)->None:
+        """
+        Loads the saved network parameters and attempts to solve the environment.
+        :param env: gym environment to play
+        :param episodes: number of episodes to play
+        :return: none
+        """
+        self.net_eval.load_state_dict(torch.load("final_checkpoint.pt"))
+        for i_ep in range(episodes+1):
+            state = env.reset()[0]
+            for step in range(500):
+                action = self.take_action(state,eps=0)
+                state, reward, done, truncated, _ = env.step(action)
+                if done:
+                    break
+        env.close()

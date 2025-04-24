@@ -1,37 +1,63 @@
 import random
+import torch
+import numpy as np
 from collections import namedtuple, deque
 
-Transition = namedtuple('Transition',
-                        ('state', 'action', 'new_state', 'reward', 'terminated'))
 class ReplayBuffer:
-    def __init__(self, capacity):
+    """
+    Utility class to store the incoming transition tuples from gym environment
+    and sample random batches for stabilizing neural network\n
+    Authors:
+        name, Nazarii Revitskyi
+    Date: Apr 23, 2025
+    """
+    Transition = namedtuple('Transition',
+                            ('state', 'action', 'next_state', 'reward', 'done'))
+    def __init__(self, device, capacity, seed)->None:
         """
-        Replay Buffer defined by named tuples representing a single
-        transition in our environment mapping (state, action) to
-        (next_state, reward)
-        :param capacity: limit of number of transitions in the replay buffer
+        Create a buffer of certain capacity and input seed
+        :param device: specify device that is
+        :param capacity: size of buffer
+        :param seed: seed for random batch
         """
-        self.buffer = deque([], maxlen=capacity)
+        self.device = device if device is not None else 'cpu'
+        self.buffer = deque(maxlen=capacity)
+        self.seed = random.seed(seed)
+        self.transition = namedtuple("Transition",
+                                     field_names=["state", "action", "next_state", "reward", "done"])
 
-    def push(self, *args):
+    def push(self, state, action, next_state, reward, done)->None:
         """
-        Push the transition that the agent observes
-        :param args: state, action, next_state, reward
+        Push a new Transition onto the Replay buffer deque.
+        :param state: current state
+        :param action: current action
+        :param next_state: mapping from this to next state
+        :param reward: mapping of reward from action
+        :param done: for q-target if terminal or non-terminal
+        :return:none
         """
-        self.buffer.append(Transition(*args))
+        self.buffer.append(self.transition(state,action,next_state,reward,done))
 
-    def sample(self, batch_size):
+    def sample(self,batch_size)->torch.tensor:
         """
-        Return a list of 'batch_size' length of random transitions chosen
-        from ReplayBuffer.
-        :param batch_size: size of list of random transitions to return
-        :return: random list of transitions of 'batch_size' length
+        Collects a batch of transitions (s, a) -> (s',r) and converts them to torch tensors
+        using numpy ndarray by sequentially adding each individual value from transition vertically
+        such that they are aligned for transformation into tensor.
+        :param batch_size: size of batch to sample from the buffer
+        :return: torch tensor for policy q value computation.
         """
-        return random.sample(self.buffer, batch_size)
+        transitions = random.sample(self.buffer, k=batch_size)
+        states = torch.from_numpy(np.vstack([e.state for e in transitions if e is not None])).float().to(self.device)
+        actions = torch.from_numpy(np.vstack([e.action for e in transitions if e is not None])).long().to(self.device)
+        rewards = torch.from_numpy(np.vstack([e.reward for e in transitions if e is not None])).float().to(self.device)
+        next_states = torch.from_numpy(np.vstack([e.next_state for e in transitions if e is not None])).float().to(self.device)
+        dones = torch.from_numpy(np.vstack([e.done for e in transitions if e is not None]).astype(np.uint8)).float().to(self.device)
 
-    def __len__(self):
+        return (states,actions,next_states,rewards,dones)
+
+    def __len__(self)->int:
         """
-        Returns length of ReplayBuffer
-        :return: number of transitions in ReplayBuffer
+        This method returns the size of buffer.
+        :return: size of the buffer
         """
         return len(self.buffer)
