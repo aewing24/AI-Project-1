@@ -1,5 +1,3 @@
-from collections import deque
-
 import torch
 import random
 import numpy as np
@@ -8,7 +6,6 @@ from matplotlib import pyplot as plt
 from torch import nn
 
 from networks.q_network import DQN
-from networks.q_network import F
 from utils.replay_buffer import ReplayBuffer
 class DQNAgent:
     """

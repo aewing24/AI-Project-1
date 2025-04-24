@@ -23,7 +23,7 @@ if __name__ == '__main__':
                             batch_size=128, gamma=0.99, sync_steps=10,
                             capacity=25000,alpha=0.0005,seed=0)
 
-    dqn_agent.train(env, 5000, terminate_on_target=False)
+    #dqn_agent.train(env, 5000, terminate_on_target=true)
     env = gym.make('LunarLander-v3', render_mode="human")
     dqn_agent.test(env, 10)
     env.close()
