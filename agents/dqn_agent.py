@@ -53,7 +53,7 @@ class DQNAgent:
         self.batch_size = batch_size
         self.gamma = gamma
         self.eps = 1.0
-        self.eps_decay = 0.001
+        self.eps_decay = 0.0025
         self.eps_end = 0.01
         self.tau = 0.001  # soft update constant
         self.sync_steps = sync_steps
@@ -121,12 +121,12 @@ class DQNAgent:
         states, actions, next_states, rewards, dones = transitions
 
         if self.enable_double_dqn:
-            # Step 1: Use evaluation network to SELECT the best action for the NEXT state
-            best_action_indices = self.net_eval(next_states).max(1)[1].unsqueeze(1)
+            # Step 1: Use target network to SELECT the best action for the NEXT state
+            best_action_indices = self.net_target(next_states).max(1)[1].unsqueeze(1)
 
-            # Step 2: Use target network to EVALUATE the value of that action
+            # Step 2: Use eval network to EVALUATE the value of that action
             next_state_values = (
-                self.net_target(next_states).gather(1, best_action_indices).detach()
+                self.net_eval(next_states).gather(1, best_action_indices).detach()
             )
         else:
             # compute V(s_{t+1})
@@ -180,7 +180,7 @@ class DQNAgent:
         self.net_eval.load_state_dict(torch.load(fname))
 
     def train(
-        self, env, episodes, max_steps=1000, target=200, terminate_on_target=False
+        self, env, episodes, max_steps=1000, target=215, terminate_on_target=False
     ) -> None:
         """
         This method is used to train DQN agent using gym LLv3 env over

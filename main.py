@@ -32,7 +32,7 @@ if __name__ == "__main__":
         enable_double_dqn=True,
     )
 
-    dqn_agent.train(env, 5000, terminate_on_target=True)
+    dqn_agent.train(env, 2500, terminate_on_target=True)
     env = gym.make("LunarLander-v3", render_mode="human")
     dqn_agent.test(env, 10)
     env.close()
