@@ -52,19 +52,27 @@ class DQNAgent:
         # hyper
         self.batch_size = batch_size
         self.gamma = gamma
-        self.eps = 1.0
+        # Epsilon: The probability of taking a random action
+        self.eps = 1.0  # 1.0 = purely random, 0.0 = purely greedy
+        # Epsilon decay: The rate of decay of epsilon, increasing exploitation over time
         self.eps_decay = 0.0025
+        # Epsilon end: The minimum epsilon value to reach
         self.eps_end = 0.01
         self.tau = 0.001  # soft update constant
         self.sync_steps = sync_steps
+        # Enable double DQN: Whether to use double DQN or not
         self.enable_double_dqn = enable_double_dqn
         # replay
         self.buffer_replay = ReplayBuffer(self.device, capacity, seed)
 
         # net
+        # Eval network: The network that is used to evaluate the Q values
         self.net_eval = DQN(state_size, action_size, seed).to(self.device)
+        # Target network: The network that is used to calculate the target Q values
         self.net_target = DQN(state_size, action_size, seed).to(self.device)
+        # Optimizer: The optimizer used to update the network parameters
         self.optimizer = optim.Adam(self.net_eval.parameters(), lr=alpha)
+        # Loss function: The loss function used to calculate the error between the predicted Q values and the expected Q values
         self.loss = nn.MSELoss()
         # update counter
         self.steps = 0
