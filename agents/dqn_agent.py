@@ -7,6 +7,7 @@ from torch import nn
 
 from networks.q_network import DQN
 from utils.replay_buffer import ReplayBuffer
+from utils.train_logger import TrainingLogger
 
 
 class DQNAgent:
@@ -64,6 +65,8 @@ class DQNAgent:
         self.enable_double_dqn = enable_double_dqn
         # replay
         self.buffer_replay = ReplayBuffer(self.device, capacity, seed)
+        # logger
+        self.training_logger = TrainingLogger()
 
         # net
         # Eval network: The network that is used to evaluate the Q values
@@ -189,7 +192,7 @@ class DQNAgent:
 
     def train(
         self, env, episodes, max_steps=1000, target=215, terminate_on_target=False
-    ) -> None:
+    ) -> TrainingLogger:
         """
         This method is used to train DQN agent using gym LLv3 env over
         policy and target Deep Q Network.
@@ -198,7 +201,7 @@ class DQNAgent:
         :param max_steps: max env steps per episode if exceeded will go to next episode
         :param target: target average reward to reach
         :param terminate_on_target: whether to terminate training on reaching target
-        :return: none
+        :return: TrainingLogger
         """
         reward_list = []
         reward_avg = 0
@@ -210,17 +213,23 @@ class DQNAgent:
         for i_ep in range(1, episodes + 1):
             state = env.reset()[0]
             cumulative_reward = 0
+            g = 0
             for i_step in range(1, max_steps + 1):
                 action = self.take_action(state, self.eps)
                 next_state, reward, done, truncated, _ = env.step(action)
                 self.prepare_batch(state, action, next_state, reward, done)
                 state = next_state
                 cumulative_reward += reward
-                if done:
-                    fails += 1
+                g += reward * (self.gamma ** i_step)
+                if done or truncated:
                     break
 
             # after each episode
+            if cumulative_reward >= 200:
+                self.training_logger.push(cumulative_reward, g, True)
+            else:
+                self.training_logger.push(cumulative_reward, g, False)
+                fails += 1
             reward_list.append(cumulative_reward)  # save new score
             reward_avg = np.mean(reward_list[-100:])  # recent 100
             reward_avg_list.append(reward_avg)
@@ -282,6 +291,8 @@ class DQNAgent:
         plt.xlabel("Episode")
         plt.legend(loc="lower right")
         plt.savefig("DQN_Reward_vs_Ep.png")
+
+        return self.training_logger
 
     def test(self, env, episodes) -> None:
         """
