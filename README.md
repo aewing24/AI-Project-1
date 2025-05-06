@@ -194,13 +194,10 @@ or by running the main.py file in your IDE.
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ## Sources
-
-<p>
-https://www.youtube.com/watch?v=EUrWGTCGzlA
-https://gymnasium.farama.org/environments/box2d/lunar_lander/
-https://docs.pytorch.org/tutorials/intermediate/reinforcement_q_learning.html?highlight=parameter+grad+data
-https://medium.com/data-science/double-deep-q-networks-905dd8325412
-https://www.youtube.com/watch?v=FKOQTdcKkN4
-https://intuitivetutorial.com/2020/11/15/discount-factor/#:~:text=The%20discounted%20sum%20of%20rewards,%2B%20%E2%80%A6%20is%20a%20geometric%20series.
-</p>
+- https://www.youtube.com/watch?v=EUrWGTCGzlA
+- https://gymnasium.farama.org/environments/box2d/lunar_lander/
+- https://docs.pytorch.org/tutorials/intermediate/reinforcement_q_learning.html?highlight=parameter+grad+data
+- https://medium.com/data-science/double-deep-q-networks-905dd8325412
+- https://www.youtube.com/watch?v=FKOQTdcKkN4
+- https://intuitivetutorial.com/2020/11/15/discount-factor/#:~:text=The%20discounted%20sum%20of%20rewards,%2B%20%E2%80%A6%20is%20a%20geometric%20series
 
