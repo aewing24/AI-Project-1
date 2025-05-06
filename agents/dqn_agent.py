@@ -34,7 +34,7 @@ class DQNAgent:
         capacity,
         alpha,
         seed,
-        enable_double_dqn=False,
+        enable_double_ddqn=False,
     ) -> None:
         """
         Initialize DQN Agent with replay buffer and adam optimizer.
@@ -62,7 +62,7 @@ class DQNAgent:
         self.tau = 0.001  # soft update constant
         self.sync_steps = sync_steps
         # Enable double DQN: Whether to use double DQN or not
-        self.enable_double_dqn = enable_double_dqn
+        self.enable_double_dqn = enable_double_ddqn
         # replay
         self.buffer_replay = ReplayBuffer(self.device, capacity, seed)
         # logger

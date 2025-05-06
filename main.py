@@ -20,36 +20,29 @@ if __name__ == "__main__":
     env = gym.make("LunarLander-v3")
     state_size = env.observation_space.shape[0]
     action_size = env.action_space.n
+    training_lenth = 100
     print("Env state size:", state_size, "Env action size:", action_size)
+    print("Training length:", training_lenth)
 
-    # First agent (baseline DDQN)
-    agent_a = DQNAgent(
-        state_size,
-        action_size,
-        batch_size=128,
-        gamma=0.99,
-        sync_steps=10,
-        capacity=25000,
-        alpha=0.0005,
-        seed=0,
-        enable_double_dqn=True,
-    )
-    logger_a = agent_a.train(env, episodes=1000, terminate_on_target=True)
+    agent_config = {
+        'state_size': state_size,
+        'action_size': action_size,
+        'batch_size': 128,
+        'gamma': 0.99,
+        'sync_steps': 10,
+        'capacity': 25000,
+        'alpha':0.0005,
+        'seed': 0
+    }
 
-    # Second agent (variant to compare, e.g., more episodes or no early stop)
-    agent_b = DQNAgent(
-        state_size,
-        action_size,
-        batch_size=128,
-        gamma=0.99,
-        sync_steps=10,
-        capacity=25000,
-        alpha=0.0005,
-        seed=0,
-        enable_double_dqn=True,
-    )
+    # First agent (baseline DQN)
+    agent_a = DQNAgent(**agent_config, enable_double_ddqn=False)
+    logger_a = agent_a.train(env, episodes=training_lenth, terminate_on_target=True)
+
+    # Second agent (DDQN exstentsion)
+    agent_b = DQNAgent(**agent_config, enable_double_ddqn=True)
     agent_b.comparison_logger = logger_a
-    logger_b = agent_b.train(env, episodes=1000, terminate_on_target=True)
+    logger_b = agent_b.train(env, episodes=training_lenth, terminate_on_target=True)
 
     # Plots using logger_a and logger_b
 
@@ -75,7 +68,6 @@ if __name__ == "__main__":
     plot_metric("success", logger_a, logger_b)
 
     # Tables using logger_a and logger_b
-    # Calculate statistics for each metric
     data = {
         "DQN (Vanilla)": [
             sum(entry.episodic_reward for entry in logger_a.memory) / len(logger_a.memory),
@@ -89,11 +81,8 @@ if __name__ == "__main__":
         ],
     }
 
-    # Define your index (rows) and columns
     index = ["Average Episode Reward", "Average Return", "Success Rate (%)"]
 
-    # Create the DataFrame
     df = pd.DataFrame(data, index=index)
 
-    # Print the DataFrame
     print(df)
