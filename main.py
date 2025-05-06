@@ -2,27 +2,24 @@ import gymnasium as gym
 import matplotlib.pyplot as plt
 import pandas as pd
 from agents.dqn_agent import DQNAgent
+from utils.train_logger import TrainingLogger
 
 """
 Code entry, establishes gym environments dqn agents and neural networks to
 learn to play Lunar Lander-v3 gym game.\n
-Authors: name, name, name, name, Nazarii Revitskyi
+Authors: Lucas Jeong, name, name, name, Nazarii Revitskyi
 Date: Apr 23, 2025.
 """
 # Sources:
 # https://gymnasium.farama.org/introduction/basic_usage/
 
-# Necessary downloads
-# pip install swig
-# pip install "gymnasium[box2d]"
-
 if __name__ == "__main__":
     env = gym.make("LunarLander-v3")
     state_size = env.observation_space.shape[0]
     action_size = env.action_space.n
-    training_lenth = 100
+    training_length = 100
     print("Env state size:", state_size, "Env action size:", action_size)
-    print("Training length:", training_lenth)
+    print("Training length:", training_length)
 
     agent_config = {
         'state_size': state_size,
@@ -37,16 +34,16 @@ if __name__ == "__main__":
 
     # First agent (baseline DQN)
     agent_a = DQNAgent(**agent_config, enable_double_ddqn=False)
-    logger_a = agent_a.train(env, episodes=training_lenth, terminate_on_target=True)
+    logger_a = agent_a.train(env, episodes=training_length, agent_name= "DQN", terminate_on_target=True)
 
     # Second agent (DDQN exstentsion)
     agent_b = DQNAgent(**agent_config, enable_double_ddqn=True)
     agent_b.comparison_logger = logger_a
-    logger_b = agent_b.train(env, episodes=training_lenth, terminate_on_target=True)
+    logger_b = agent_b.train(env, episodes=training_length, agent_name="Double - DQN", terminate_on_target=True)
 
     # Plots using logger_a and logger_b
 
-    def plot_metric(metric_name, logger_a, logger_b, label_a="Agent A", label_b="Agent B"):
+    def plot_metric(metric_name: str, logger_a: TrainingLogger, logger_b: TrainingLogger, label_a="Agent A", label_b="Agent B"):
         index = {"episodic_reward": 0, "return_g": 1, "success": 2}[metric_name]
         data_a = [entry[index] for entry in logger_a.memory]
         data_b = [entry[index] for entry in logger_b.memory]

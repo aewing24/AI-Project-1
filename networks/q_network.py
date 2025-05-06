@@ -10,7 +10,7 @@ class DQN(nn.Module):
         name, Nazarii Revitskyi
     Date: Apr 23, 2025.
     """
-    def __init__(self, state_size, action_size, seed)->None:
+    def __init__(self, state_size: int, action_size: int, seed: int)->None:
         """
         Extending the nn to initialize custom neural network with custom layers.
         :param state_size: number of input nodes
@@ -24,7 +24,7 @@ class DQN(nn.Module):
         self.fc2 = nn.Linear(64, 64) # second fully connected layer
         self.out = nn.Linear(64, action_size) # output layer
 
-    def forward(self, state):
+    def forward(self, state: any) -> any:
         """
         Overridden method applies non_linear computation on layer advance.
         :param state:  state of network.

@@ -5,6 +5,8 @@ import torch.optim as optim
 from matplotlib import pyplot as plt
 from torch import nn
 
+import gymnasium as gym
+
 from networks.q_network import DQN
 from utils.replay_buffer import ReplayBuffer
 from utils.train_logger import TrainingLogger
@@ -26,14 +28,14 @@ class DQNAgent:
 
     def __init__(
         self,
-        state_size,
-        action_size,
-        batch_size,
-        gamma,
-        sync_steps,
-        capacity,
-        alpha,
-        seed,
+        state_size: int,
+        action_size: int,
+        batch_size: int,
+        gamma: float,
+        sync_steps: int,
+        capacity: int,
+        alpha: float,
+        seed: int,
         enable_double_ddqn=False,
     ) -> None:
         """
@@ -68,7 +70,6 @@ class DQNAgent:
         # logger
         self.training_logger = TrainingLogger()
 
-        # net
         # Eval network: The network that is used to evaluate the Q values
         self.net_eval = DQN(state_size, action_size, seed).to(self.device)
         # Target network: The network that is used to calculate the target Q values
@@ -80,7 +81,7 @@ class DQNAgent:
         # update counter
         self.steps = 0
 
-    def take_action(self, state, eps=0.0) -> int:
+    def take_action(self, state: any, eps=0.0) -> int:
         """
         Converts numpy array to tensor and moves to specified device
         then gets the action values from network and based on epsilon chooses
@@ -100,7 +101,7 @@ class DQNAgent:
         else:
             return random.choice(np.arange(self.action_size))
 
-    def prepare_batch(self, state, action, next_state, reward, done) -> None:
+    def prepare_batch(self, state: np.ndarray, action: int, next_state: np.ndarray, reward: float, done: bool) -> None:
         """
         Adds transition to replay buffer and checks if enough steps were taken
         before syncing policy and target networks
@@ -119,7 +120,7 @@ class DQNAgent:
                 transitions = self.buffer_replay.sample(self.batch_size)
                 self.update_params(transitions)
 
-    def update_params(self, transitions) -> None:
+    def update_params(self, transitions: any) -> None:
         """
         If buffer size is sufficient we take the named tuple and convert it to
         tensors to calculate the q values in value network then compute error
@@ -174,7 +175,7 @@ class DQNAgent:
                 self.tau * eval_param.data + (1.0 - self.tau) * target_param.data
             )
 
-    def save(self, fname) -> None:
+    def save(self, fname: str) -> None:
         """
         save network state named as fname
         :param fname: file name to save the state of network.
@@ -182,7 +183,7 @@ class DQNAgent:
         """
         torch.save(self.net_eval.state_dict(), fname)
 
-    def load(self, fname) -> None:
+    def load(self, fname: str) -> None:
         """
         Load saved state of network in fname file and map tensors from gpu to cpu
         :param fname:
@@ -191,7 +192,7 @@ class DQNAgent:
         self.net_eval.load_state_dict(torch.load(fname))
 
     def train(
-        self, env, episodes, max_steps=1000, target=215, terminate_on_target=False
+        self, env: gym.Env, episodes: int, agent_name: str, max_steps=1000, target=215, terminate_on_target=False
     ) -> TrainingLogger:
         """
         This method is used to train DQN agent using gym LLv3 env over
@@ -209,6 +210,7 @@ class DQNAgent:
 
         fails = 0
 
+        print("\n Agent: ", agent_name, "\n")
         # train loop
         for i_ep in range(1, episodes + 1):
             state = env.reset()[0]
@@ -238,8 +240,8 @@ class DQNAgent:
             )  # decrease eps
 
             print(
-                "\rEpisode {}\tAverage Reward: {:.2f}\tTotal Episodic Reward: {:.2f}\tEpsilon: {:.2f}\tSuccesses: {}/{}".format(
-                    i_ep, reward_avg, sum(reward_list), self.eps, i_ep - fails, i_ep
+                "\rEpisode {}\tAverage Reward: {:.2f}\tTotal Episodic Reward: {:.2f}\tReturn G: {:.2f}\tEpsilon: {:.2f}\tSuccesses: {}/{}".format(
+                    i_ep, reward_avg, sum(reward_list), g, self.eps, i_ep - fails, i_ep
                 ),
                 end="",
             )
@@ -256,8 +258,8 @@ class DQNAgent:
 
             if i_ep % 25 == 0:
                 print(
-                    "\rEpisode {}\tAverage Reward: {:.2f}\tTotal Episodic Reward: {:.2f}\tEpsilon: {:.2f}\tSuccesses: {}/{}".format(
-                        i_ep, reward_avg, sum(reward_list), self.eps, i_ep - fails, i_ep
+                    "\rEpisode {}\tAverage Reward: {:.2f}\tTotal Episodic Reward: {:.2f}\tReturn G: {:.2f}\tEpsilon: {:.2f}\tSuccesses: {}/{}".format(
+                        i_ep, reward_avg, sum(reward_list), g, self.eps, i_ep - fails, i_ep
                     )
                 )
             if np.mean(reward_avg) >= target and terminate_on_target:
@@ -269,6 +271,7 @@ class DQNAgent:
                 self.save("final_checkpoint.pt")
                 break
         # plots
+        '''
         fig = plt.figure()
         fig.add_subplot(111)
         plt.axhline(
@@ -291,6 +294,7 @@ class DQNAgent:
         plt.xlabel("Episode")
         plt.legend(loc="lower right")
         plt.savefig("DQN_Reward_vs_Ep.png")
+        '''
 
         # WORKING ON PLOTS HERE! NEW CODE \/\/\/\/
 
@@ -316,8 +320,8 @@ class DQNAgent:
                 returns = [log.return_g for log in logger.memory]
                 plt.plot(returns, label=agent_names[i])
             plt.xlabel("Episode")
-            plt.ylabel("Return G")
-            plt.title("Return G vs. Episode")
+            plt.ylabel("Return Sum of Discounted Rewards")
+            plt.title("Episodic Return vs. Episode")
             plt.legend()
             plt.savefig("Comparison_Return_vs_Episode.png")
 
@@ -336,7 +340,7 @@ class DQNAgent:
 
         return self.training_logger
 
-    def test(self, env, episodes) -> None:
+    def test(self, env: gym.Env, episodes: int) -> None:
         """
         Loads the saved network parameters and attempts to solve the environment.
         :param env: gym environment to play
