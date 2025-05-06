@@ -1,5 +1,6 @@
 import gymnasium as gym
 import matplotlib.pyplot as plt
+import pandas as pd
 from agents.dqn_agent import DQNAgent
 
 """
@@ -74,3 +75,25 @@ if __name__ == "__main__":
     plot_metric("success", logger_a, logger_b)
 
     # Tables using logger_a and logger_b
+    # Calculate statistics for each metric
+    data = {
+        "DQN (Vanilla)": [
+            sum(entry.episodic_reward for entry in logger_a.memory) / len(logger_a.memory),
+            sum(entry.return_g for entry in logger_a.memory) / len(logger_a.memory),
+            sum(1 for entry in logger_a.memory if entry.success) / len(logger_a.memory) * 100,
+        ],
+        "Double DQN": [
+            sum(entry.episodic_reward for entry in logger_b.memory) / len(logger_b.memory),
+            sum(entry.return_g for entry in logger_b.memory) / len(logger_b.memory),
+            sum(1 for entry in logger_b.memory if entry.success) / len(logger_b.memory) * 100,
+        ],
+    }
+
+    # Define your index (rows) and columns
+    index = ["Average Episode Reward", "Average Return", "Success Rate (%)"]
+
+    # Create the DataFrame
+    df = pd.DataFrame(data, index=index)
+
+    # Print the DataFrame
+    print(df)
