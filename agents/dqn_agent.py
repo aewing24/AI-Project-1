@@ -292,6 +292,48 @@ class DQNAgent:
         plt.legend(loc="lower right")
         plt.savefig("DQN_Reward_vs_Ep.png")
 
+        # WORKING ON PLOTS HERE! NEW CODE \/\/\/\/
+
+        # Extra plots for comparison if multiple agents are run
+        if hasattr(self, 'comparison_logger'):  # Hacky but avoids changing other classes
+            agent_names = ['Agent A', 'Agent B']
+            loggers = [self.training_logger, self.comparison_logger]
+
+            # Plot 1: Episodic Reward
+            plt.figure()
+            for i, logger in enumerate(loggers):
+                rewards = [log.episodic_reward for log in logger.memory]
+                plt.plot(rewards, label=agent_names[i])
+            plt.xlabel("Episode")
+            plt.ylabel("Episodic Reward")
+            plt.title("Episodic Reward vs. Episode")
+            plt.legend()
+            plt.savefig("Comparison_Reward_vs_Episode.png")
+
+            # Plot 2: Return G
+            plt.figure()
+            for i, logger in enumerate(loggers):
+                returns = [log.return_g for log in logger.memory]
+                plt.plot(returns, label=agent_names[i])
+            plt.xlabel("Episode")
+            plt.ylabel("Return G")
+            plt.title("Return G vs. Episode")
+            plt.legend()
+            plt.savefig("Comparison_Return_vs_Episode.png")
+
+            # Plot 3: Success Rate (binary success per episode)
+            plt.figure()
+            for i, logger in enumerate(loggers):
+                successes = [int(log.success) for log in logger.memory]
+                plt.plot(successes, label=agent_names[i])
+            plt.xlabel("Episode")
+            plt.ylabel("Success (1 = landed)")
+            plt.title("Success Rate over Time")
+            plt.legend()
+            plt.savefig("Comparison_SuccessRate_vs_Episode.png")
+
+        # END OF NEW CODE ^^^^^^^^^^^
+
         return self.training_logger
 
     def test(self, env, episodes) -> None:
