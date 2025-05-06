@@ -18,11 +18,11 @@ class DQNAgent:
     and utilizes target policy eps-greedy networks that operate using
     DQN algorithm.\n
     Authors:
-        name, name, name, name, Nazarii Revitskyi
-    Date: Apr 23, 2025
+        Mathew Belmont, Alexander Ewing, Lucas Jeong, Nathan Wanjongkhum, Nazarii Revitskyi
+    Date: May 7, 2025
     """
 
-    # if gpu
+    # if gpu is available, otherwise utilize CPU.
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print("Current device: ", device)
 
@@ -62,10 +62,12 @@ class DQNAgent:
         # Epsilon end: The minimum epsilon value to reach
         self.eps_end = 0.01
         self.tau = 0.001  # soft update constant
-        self.sync_steps = sync_steps
-        # Enable double DQN: Whether to use double DQN or not
+        self.sync_steps = sync_steps # How many steps before policy and target network are synched.
+
+        # Enable double DQN: Toggle DDQN
         self.enable_double_dqn = enable_double_ddqn
-        # replay
+
+        # Replay buffer
         self.buffer_replay = ReplayBuffer(self.device, capacity, seed)
         # logger
         self.training_logger = TrainingLogger()
@@ -270,33 +272,6 @@ class DQNAgent:
                 )
                 self.save("final_checkpoint.pt")
                 break
-        # plots
-        '''
-        fig = plt.figure()
-        fig.add_subplot(111)
-        plt.axhline(
-            y=target, xmin=0, xmax=episodes + 100, color="g", label="Final Reward"
-        )
-        plt.plot(
-            np.arange(len(reward_list)),
-            reward_list,
-            color="b",
-            label="Cumulative Rewards",
-        )
-        plt.plot(
-            np.arange(len(reward_avg_list)),
-            reward_avg_list,
-            "r",
-            label="Average-Reward",
-        )
-        plt.title("Episodic Reward LLv3")
-        plt.ylabel("Rewards")
-        plt.xlabel("Episode")
-        plt.legend(loc="lower right")
-        plt.savefig("DQN_Reward_vs_Ep.png")
-        '''
-
-        # WORKING ON PLOTS HERE! NEW CODE \/\/\/\/
 
         # Extra plots for comparison if multiple agents are run
         if hasattr(self, 'comparison_logger'):  # Hacky but avoids changing other classes
@@ -335,9 +310,6 @@ class DQNAgent:
             plt.title("Success Rate over Time")
             plt.legend()
             plt.savefig("Comparison_SuccessRate_vs_Episode.png")
-
-        # END OF NEW CODE ^^^^^^^^^^^
-
         return self.training_logger
 
     def test(self, env: gym.Env, episodes: int) -> None:

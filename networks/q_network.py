@@ -7,7 +7,7 @@ class DQN(nn.Module):
     DQN extension of torch.nn creates neural network for incoming gym
     environment where input_nodes=state_size and output_nodes=action_size\n
     Authors:
-        name, Nazarii Revitskyi
+        Mathew Belmont, Nazarii Revitskyi
     Date: Apr 23, 2025.
     """
     def __init__(self, state_size: int, action_size: int, seed: int)->None:

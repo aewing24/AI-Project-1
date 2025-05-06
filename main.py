@@ -7,11 +7,9 @@ from utils.train_logger import TrainingLogger
 """
 Code entry, establishes gym environments dqn agents and neural networks to
 learn to play Lunar Lander-v3 gym game.\n
-Authors: Lucas Jeong, name, name, name, Nazarii Revitskyi
-Date: Apr 23, 2025.
+Authors: Nathan Wanjongkhum, Lucas Jeong, Mathew Belmont, Alexander Ewing, Nazarii Revitskyi
+Date: May 7, 2025.
 """
-# Sources:
-# https://gymnasium.farama.org/introduction/basic_usage/
 
 if __name__ == "__main__":
     env = gym.make("LunarLander-v3")
@@ -77,9 +75,6 @@ if __name__ == "__main__":
             sum(1 for entry in logger_b.memory if entry.success) / len(logger_b.memory) * 100,
         ],
     }
-
     index = ["Average Episode Reward", "Average Return", "Success Rate (%)"]
-
     df = pd.DataFrame(data, index=index)
-
     print(df)
