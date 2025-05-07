@@ -15,7 +15,7 @@ if __name__ == "__main__":
     env = gym.make("LunarLander-v3")
     state_size = env.observation_space.shape[0]
     action_size = env.action_space.n
-    training_length = 100
+    training_length = 1000
     print("Env state size:", state_size, "Env action size:", action_size)
     print("Training length:", training_length)
 
@@ -26,7 +26,7 @@ if __name__ == "__main__":
         'gamma': 0.99,
         'sync_steps': 10,
         'capacity': 25000,
-        'alpha':0.0005,
+        'alpha':0.001,
         'seed': 0
     }
 
@@ -41,10 +41,20 @@ if __name__ == "__main__":
 
     # Plots using logger_a and logger_b
 
-    def plot_metric(metric_name: str, logger_a: TrainingLogger, logger_b: TrainingLogger, label_a="Agent A", label_b="Agent B"):
+    def plot_metric(metric_name: str, logger_a: TrainingLogger, logger_b: TrainingLogger, label_a="DQN", label_b="DDQN"):
         index = {"episodic_reward": 0, "return_g": 1, "success": 2}[metric_name]
         data_a = [entry[index] for entry in logger_a.memory]
         data_b = [entry[index] for entry in logger_b.memory]
+
+        if metric_name == "success":
+            count_a = 0
+            count_b = 0
+            for i in range(1, len(data_a)+1):
+                count_a += data_a[i-1]
+                data_a[i-1] = count_a / i
+            for i in range(1, len(data_b)+1):
+                count_b += data_b[i-1]
+                data_b[i-1] = count_b / i
 
         plt.figure(figsize=(10, 5))
         plt.plot(data_a, label=label_a)
@@ -62,17 +72,19 @@ if __name__ == "__main__":
     plot_metric("return_g", logger_a, logger_b)
     plot_metric("success", logger_a, logger_b)
 
+    a_end = logger_a.memory[-100:]
+    b_end = logger_b.memory[-100:]
     # Tables using logger_a and logger_b
     data = {
         "DQN (Vanilla)": [
-            sum(entry.episodic_reward for entry in logger_a.memory) / len(logger_a.memory),
-            sum(entry.return_g for entry in logger_a.memory) / len(logger_a.memory),
-            sum(1 for entry in logger_a.memory if entry.success) / len(logger_a.memory) * 100,
+            sum(entry.episodic_reward for entry in a_end) / 100,
+            sum(entry.return_g for entry in a_end) / 100,
+            sum(1 for entry in a_end if entry.success),
         ],
         "Double DQN": [
-            sum(entry.episodic_reward for entry in logger_b.memory) / len(logger_b.memory),
-            sum(entry.return_g for entry in logger_b.memory) / len(logger_b.memory),
-            sum(1 for entry in logger_b.memory if entry.success) / len(logger_b.memory) * 100,
+            sum(entry.episodic_reward for entry in b_end) / 100,
+            sum(entry.return_g for entry in b_end) / 100,
+            sum(1 for entry in b_end if entry.success),
         ],
     }
     index = ["Average Episode Reward", "Average Return", "Success Rate (%)"]

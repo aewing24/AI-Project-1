@@ -21,7 +21,7 @@ class DQN(nn.Module):
         self.seed = manual_seed(seed)
         # Define network layers
         self.fc1 = nn.Linear(state_size, 64)   # first fully connected layer
-        self.fc2 = nn.Linear(64, 64) # second fully connected layer
+        self.fc2 = nn.Linear(64, 64)  # second fully connected layer
         self.out = nn.Linear(64, action_size) # output layer
 
     def forward(self, state: any) -> any:

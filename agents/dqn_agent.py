@@ -203,7 +203,7 @@ class DQNAgent:
         :param episodes: number of episodes to train over
         :param max_steps: max env steps per episode if exceeded will go to next episode
         :param target: target average reward to reach
-        :param terminate_on_target: whether to terminate training on reaching target
+        :param terminate_on_target: whether to terminate training on reaching target mean rewards
         :return: TrainingLogger
         """
         reward_list = []
@@ -264,7 +264,7 @@ class DQNAgent:
                         i_ep, reward_avg, sum(reward_list), g, self.eps, i_ep - fails, i_ep
                     )
                 )
-            if np.mean(reward_avg) >= target and terminate_on_target:
+            if np.mean(reward_avg) >= target and not terminate_on_target:
                 print(
                     "\nEnvironment solved in {:d} episodes!\tAverage Score: {:.2f}".format(
                         i_ep, reward_avg
@@ -272,7 +272,7 @@ class DQNAgent:
                 )
                 self.save("final_checkpoint.pt")
                 break
-
+        '''
         # Extra plots for comparison if multiple agents are run
         if hasattr(self, 'comparison_logger'):  # Hacky but avoids changing other classes
             agent_names = ['Agent A', 'Agent B']
@@ -310,6 +310,7 @@ class DQNAgent:
             plt.title("Success Rate over Time")
             plt.legend()
             plt.savefig("Comparison_SuccessRate_vs_Episode.png")
+        '''
         return self.training_logger
 
     def test(self, env: gym.Env, episodes: int) -> None:

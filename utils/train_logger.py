@@ -27,11 +27,3 @@ class TrainingLogger:
 
     def __len__(self):
         return len(self.memory)
-
-    def sample(self, batch_size)->list[Log]:
-        """
-        Return a batch of Logs\n
-        :param batch_size: the number of most recent samples to return
-        :return: list[Log]
-        """
-        return self.memory[-batch_size]
