@@ -42,10 +42,12 @@ if __name__ == "__main__":
     # Plots using logger_a and logger_b
 
     def plot_metric(metric_name: str, logger_a: TrainingLogger, logger_b: TrainingLogger, label_a="DQN", label_b="DDQN"):
+        # Dictionary which contains the metric name associated with the index in the logger.
         index = {"episodic_reward": 0, "return_g": 1, "success": 2}[metric_name]
         data_a = [entry[index] for entry in logger_a.memory]
         data_b = [entry[index] for entry in logger_b.memory]
 
+        # Change success as a binary graph
         if metric_name == "success":
             count_a = 0
             count_b = 0
@@ -56,9 +58,12 @@ if __name__ == "__main__":
                 count_b += data_b[i-1]
                 data_b[i-1] = count_b / i
 
+        # Create figure and plot it with the data from the loggers
         plt.figure(figsize=(10, 5))
         plt.plot(data_a, label=label_a)
         plt.plot(data_b, label=label_b)
+
+        # Title and labels
         plt.title(f"{metric_name.replace('_', ' ').title()} over Episodes")
         plt.xlabel("Episode")
         plt.ylabel(metric_name.replace('_', ' ').title())
@@ -67,13 +72,15 @@ if __name__ == "__main__":
         plt.tight_layout()
         plt.show()
 
-
+    # Create plots using a function
     plot_metric("episodic_reward", logger_a, logger_b)
     plot_metric("return_g", logger_a, logger_b)
     plot_metric("success", logger_a, logger_b)
 
+    # Retrieve last 100 episodes of training for both agents via the logger
     a_end = logger_a.memory[-100:]
     b_end = logger_b.memory[-100:]
+
     # Tables using logger_a and logger_b
     data = {
         "DQN (Vanilla)": [

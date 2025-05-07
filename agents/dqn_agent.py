@@ -16,7 +16,7 @@ class DQNAgent:
     """
     This is the DQN type agent that interacts with custom environment
     and utilizes target policy eps-greedy networks that operate using
-    DQN algorithm.\n
+    DQN algorithm.
     Authors:
         Mathew Belmont, Alexander Ewing, Lucas Jeong, Nathan Wanjongkhum, Nazarii Revitskyi
     Date: May 7, 2025
@@ -48,11 +48,11 @@ class DQNAgent:
         :param alpha: learning rate constant, determines to what extent new info overrides old.
         :param seed: seed to use for random
         """
-        # net param
+        # Net parameters
         self.state_size = state_size
         self.action_size = action_size
         self.seed = random.seed(seed)
-        # hyper
+        # Hyperparameters
         self.batch_size = batch_size
         self.gamma = gamma
         # Epsilon: The probability of taking a random action
@@ -69,7 +69,7 @@ class DQNAgent:
 
         # Replay buffer
         self.buffer_replay = ReplayBuffer(self.device, capacity, seed)
-        # logger
+        # Logger
         self.training_logger = TrainingLogger()
 
         # Eval network: The network that is used to evaluate the Q values
@@ -80,7 +80,7 @@ class DQNAgent:
         self.optimizer = optim.Adam(self.net_eval.parameters(), lr=alpha)
         # Loss function: The loss function used to calculate the error between the predicted Q values and the expected Q values
         self.loss = nn.MSELoss()
-        # update counter
+        # Update counter
         self.steps = 0
 
     def take_action(self, state: any, eps=0.0) -> int:
@@ -213,11 +213,13 @@ class DQNAgent:
         fails = 0
 
         print("\n Agent: ", agent_name, "\n")
-        # train loop
+        # Train loop
         for i_ep in range(1, episodes + 1):
+            # In a new episode "reset" the rewards and g
             state = env.reset()[0]
             cumulative_reward = 0
             g = 0
+            # Training steps
             for i_step in range(1, max_steps + 1):
                 action = self.take_action(state, self.eps)
                 next_state, reward, done, truncated, _ = env.step(action)
@@ -228,25 +230,27 @@ class DQNAgent:
                 if done or truncated:
                     break
 
-            # after each episode
+            # After each episode
             if cumulative_reward >= 200:
                 self.training_logger.push(cumulative_reward, g, True)
             else:
                 self.training_logger.push(cumulative_reward, g, False)
                 fails += 1
-            reward_list.append(cumulative_reward)  # save new score
-            reward_avg = np.mean(reward_list[-100:])  # recent 100
+            reward_list.append(cumulative_reward)  # Save new score
+            reward_avg = np.mean(reward_list[-100:])  # Recent 100
             reward_avg_list.append(reward_avg)
             self.eps = max(
                 self.eps * (1 - self.eps_decay), self.eps_end
-            )  # decrease eps
+            )  # Decrease eps
 
+            # print the metrics
             print(
                 "\rEpisode {}\tAverage Reward: {:.2f}\tTotal Episodic Reward: {:.2f}\tReturn G: {:.2f}\tEpsilon: {:.2f}\tSuccesses: {}/{}".format(
                     i_ep, reward_avg, sum(reward_list), g, self.eps, i_ep - fails, i_ep
                 ),
                 end="",
             )
+            # Checkpoints for training
             if i_ep == 50:
                 self.save("checkpoint_mid_train1.pt")
             if i_ep == 100:
@@ -258,6 +262,7 @@ class DQNAgent:
             if i_ep == 1000:
                 self.save("checkpoint_mid_train5.pt")
 
+            # Persisting metrics in the console
             if i_ep % 25 == 0:
                 print(
                     "\rEpisode {}\tAverage Reward: {:.2f}\tTotal Episodic Reward: {:.2f}\tReturn G: {:.2f}\tEpsilon: {:.2f}\tSuccesses: {}/{}".format(
@@ -272,45 +277,6 @@ class DQNAgent:
                 )
                 self.save("final_checkpoint.pt")
                 break
-        '''
-        # Extra plots for comparison if multiple agents are run
-        if hasattr(self, 'comparison_logger'):  # Hacky but avoids changing other classes
-            agent_names = ['Agent A', 'Agent B']
-            loggers = [self.training_logger, self.comparison_logger]
-
-            # Plot 1: Episodic Reward
-            plt.figure()
-            for i, logger in enumerate(loggers):
-                rewards = [log.episodic_reward for log in logger.memory]
-                plt.plot(rewards, label=agent_names[i])
-            plt.xlabel("Episode")
-            plt.ylabel("Episodic Reward")
-            plt.title("Episodic Reward vs. Episode")
-            plt.legend()
-            plt.savefig("Comparison_Reward_vs_Episode.png")
-
-            # Plot 2: Return G
-            plt.figure()
-            for i, logger in enumerate(loggers):
-                returns = [log.return_g for log in logger.memory]
-                plt.plot(returns, label=agent_names[i])
-            plt.xlabel("Episode")
-            plt.ylabel("Return Sum of Discounted Rewards")
-            plt.title("Episodic Return vs. Episode")
-            plt.legend()
-            plt.savefig("Comparison_Return_vs_Episode.png")
-
-            # Plot 3: Success Rate (binary success per episode)
-            plt.figure()
-            for i, logger in enumerate(loggers):
-                successes = [int(log.success) for log in logger.memory]
-                plt.plot(successes, label=agent_names[i])
-            plt.xlabel("Episode")
-            plt.ylabel("Success (1 = landed)")
-            plt.title("Success Rate over Time")
-            plt.legend()
-            plt.savefig("Comparison_SuccessRate_vs_Episode.png")
-        '''
         return self.training_logger
 
     def test(self, env: gym.Env, episodes: int) -> None:
