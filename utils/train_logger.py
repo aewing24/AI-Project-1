@@ -11,7 +11,7 @@ class TrainingLogger:
     Date: May 5, 2025
     """
     def __init__(self)->None:
-        self.memory = []
+        self.memory: list[Log] = []
         self.log = namedtuple("Log",
                                      field_names=['episodic_reward', 'return_g', 'success'])
     # episodes are in the form (total reward, Return G, Landing Success)

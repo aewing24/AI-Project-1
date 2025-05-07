@@ -1,6 +1,8 @@
+import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import manual_seed
+import numpy.typing as npt
 
 class DQN(nn.Module):
     """
@@ -32,5 +34,5 @@ class DQN(nn.Module):
         """
         x = F.relu(self.fc1(state))  # Apply rectified linear unit (ReLU) activation
         x = F.relu(self.fc2(x))
-        q_vals = self.out(x)
+        q_vals: npt.NDArray[np.float64] = self.out(x)
         return q_vals  # Calculate output

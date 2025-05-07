@@ -2,7 +2,7 @@ import gymnasium as gym
 import matplotlib.pyplot as plt
 import pandas as pd
 from agents.dqn_agent import DQNAgent
-from utils.train_logger import TrainingLogger
+from utils.train_logger import Log, TrainingLogger
 
 """
 Code entry, establishes gym environments dqn agents and neural networks to
@@ -13,8 +13,8 @@ Date: May 7, 2025.
 
 if __name__ == "__main__":
     env = gym.make("LunarLander-v3")
-    state_size = env.observation_space.shape[0]
-    action_size = env.action_space.n
+    state_size: int = env.observation_space.shape[0]
+    action_size: int = env.action_space.n
     training_length = 1000
     print("Env state size:", state_size, "Env action size:", action_size)
     print("Training length:", training_length)
@@ -44,13 +44,18 @@ if __name__ == "__main__":
     def plot_metric(metric_name: str, logger_a: TrainingLogger, logger_b: TrainingLogger, label_a="DQN", label_b="DDQN"):
         # Dictionary which contains the metric name associated with the index in the logger.
         index = {"episodic_reward": 0, "return_g": 1, "success": 2}[metric_name]
-        data_a = [entry[index] for entry in logger_a.memory]
-        data_b = [entry[index] for entry in logger_b.memory]
+        
+        # Gets a list representation of the Log namedtuple (episodic_reward: float, return_g: float, success: bool)
+        # bool can be interpreted as a float 0 or 1 since we are taking the average of the success rate
+        data_a: list[float] = [entry[index] for entry in logger_a.memory]
+        data_b: list[float] = [entry[index] for entry in logger_b.memory]
 
         # Change success as a binary graph
         if metric_name == "success":
             count_a = 0
             count_b = 0
+            
+            # Calculate the average success rate
             for i in range(1, len(data_a)+1):
                 count_a += data_a[i-1]
                 data_a[i-1] = count_a / i

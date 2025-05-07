@@ -1,9 +1,9 @@
 import torch
 import random
 import numpy as np
+import numpy.typing as npt
 import torch.optim as optim
-from matplotlib import pyplot as plt
-from torch import nn
+from torch import Tensor, nn
 
 import gymnasium as gym
 
@@ -83,7 +83,7 @@ class DQNAgent:
         # Update counter
         self.steps = 0
 
-    def take_action(self, state: any, eps=0.0) -> int:
+    def take_action(self, state: npt.NDArray[np.float64], eps=0.0) -> int:
         """
         Converts numpy array to tensor and moves to specified device
         then gets the action values from network and based on epsilon chooses
@@ -92,10 +92,10 @@ class DQNAgent:
         :param eps: epsilon value to introduce exploration vs exploitation
         :return: action to take.
         """
-        state = torch.from_numpy(state).float().unsqueeze(0).to(self.device)
+        state: Tensor = torch.from_numpy(state).float().unsqueeze(0).to(self.device)
         self.net_eval.eval()
         with torch.no_grad():
-            action_values = self.net_eval(state)
+            action_values: npt.NDArray[np.float64] = self.net_eval(state)
         self.net_eval.train()
         # select action by epsilon
         if random.random() > eps:
@@ -206,27 +206,27 @@ class DQNAgent:
         :param terminate_on_target: whether to terminate training on reaching target mean rewards
         :return: TrainingLogger
         """
-        reward_list = []
-        reward_avg = 0
-        reward_avg_list = []
+        reward_list: list[float] = []
+        reward_avg: float = 0
+        reward_avg_list: list[float] = []
 
-        fails = 0
+        fails: int = 0
 
         print("\n Agent: ", agent_name, "\n")
         # Train loop
         for i_ep in range(1, episodes + 1):
             # In a new episode "reset" the rewards and g
-            state = env.reset()[0]
-            cumulative_reward = 0
-            g = 0
+            state: npt.NDArray[np.float64] = env.reset()[0]
+            cumulative_reward: float = 0
+            g: float = 0
             # Training steps
             for i_step in range(1, max_steps + 1):
                 action = self.take_action(state, self.eps)
                 next_state, reward, done, truncated, _ = env.step(action)
                 self.prepare_batch(state, action, next_state, reward, done)
                 state = next_state
-                cumulative_reward += reward
-                g += reward * (self.gamma ** i_step)
+                cumulative_reward += float(reward)
+                g += float(reward) * (self.gamma ** i_step)
                 if done or truncated:
                     break
 
@@ -287,11 +287,11 @@ class DQNAgent:
         :return: none
         """
         self.net_eval.load_state_dict(torch.load("final_checkpoint.pt"))
-        for i_ep in range(episodes + 1):
-            state = env.reset()[0]
-            for step in range(500):
+        for _i_ep in range(episodes + 1):
+            state: npt.NDArray[np.float64] = env.reset()[0]
+            for _step in range(500):
                 action = self.take_action(state, eps=0)
-                state, reward, done, truncated, _ = env.step(action)
+                state, _, done, _, _ = env.step(action)
                 if done:
                     break
         env.close()
