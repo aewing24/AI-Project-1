@@ -1,5 +1,6 @@
 import gymnasium as gym
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 from agents.dqn_agent import DQNAgent
 from utils.train_logger import Log, TrainingLogger
@@ -52,16 +53,14 @@ if __name__ == "__main__":
 
         # Change success as a binary graph
         if metric_name == "success":
-            count_a = 0
-            count_b = 0
-            
             # Calculate the average success rate
-            for i in range(1, len(data_a)+1):
-                count_a += data_a[i-1]
-                data_a[i-1] = count_a / i
-            for i in range(1, len(data_b)+1):
-                count_b += data_b[i-1]
-                data_b[i-1] = count_b / i
+            data_a_array = np.array(data_a)
+            running_averages = np.cumsum(data_a_array) / np.arange(1, len(data_a_array) + 1)
+            data_a = running_averages.tolist()
+            
+            data_b_array = np.array(data_b)
+            running_averages = np.cumsum(data_b_array) / np.arange(1, len(data_b_array) + 1)
+            data_b = running_averages.tolist()
 
         # Create figure and plot it with the data from the loggers
         plt.figure(figsize=(10, 5))
